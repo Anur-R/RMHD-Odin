@@ -96,11 +96,14 @@ def ke_ps_for_each_snapshot(data_dir):
     # way to store the data but I don't care.
     subdir = file_structure(data_dir)
 
+    fields = ["RHOB", "WVX", "WVY", "WVZ"]
+
     data = np.zeros((2, 254, len(subdir)))
 
     for i in range(len(subdir)):
-        path = data_dir + subdir[i]
-        data[:,:, i] = make_ke_ps(path)
+        path = data_dir + '/'+ subdir[i]
+        ds, cube = load_snapshot(path, fields)
+        data[:,:, i] = make_ke_ps(ds, cube)
 
     return data, subdir
 
