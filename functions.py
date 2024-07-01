@@ -22,28 +22,34 @@ def load_snapshot(data_dir, fields):
     
     return ds, cube
 
-def make_ke_ps(snapshot): 
-    # take a snapshot and make a power spectrum 
-    # for the kinetic energy
-    ke_vec = ["RHOB", "WVX", "WVY", "WVZ"]
-    ds, cube = load_snapshot(snapshot, ke_vec)
-    
-    rho = cube["RHOB"].d
+def lorentz(cube):  
     gvx = cube["WVX"].d
     gvy = cube["WVY"].d
     gvz = cube["WVZ"].d
-    
-    nx, ny, nz = rho.shape
+    nx, ny, nz = gvx.shape
 
-    lorentz = np.zeros_like(rho)
+    lorentz = np.zeros_like(gvx)
     for i in range(nx):
         for j in range(ny):
             for k in range(nz):
-                lorentz[i, j, k] = np.sqrt(1 + gvx[i, j, k] ** 2 + gvx[i, j, k] ** 2 + gvz[i, j, k] ** 2)
-                
-    vx = gvx/lorentz  
-    vy = gvy/lorentz  
-    vz = gvz/lorentz 
+                lorentz[i, j, k] = np.sqrt(1 + gvx[i, j, k] ** 2 + gvy[i, j, k] ** 2 + gvz[i, j, k] ** 2)
+
+    return lorentz
+
+def velocities(cube): 
+    gvx = cube["WVX"].d
+    gvy = cube["WVY"].d
+    gvz = cube["WVZ"].d
+    l_factor = lorentz(cube)
+    return gvx/l_factor, gvy/l_factor, gvy/l_factor
+
+def make_ke_ps(ds, cube): 
+    # take a snapshot and make a power spectrum 
+    # for the kinetic energy
+    
+    rho = cube["RHOB"].d
+    vx, vy, vz = velocities(cube)
+    nx, ny, nz = rho.shape
     
     nindex_rho = 1/3
     
