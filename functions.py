@@ -1,12 +1,12 @@
 import os 
 import yt 
 import numpy as np
+from natsort import natsorted
 
 def file_structure(data_dir):
-    # View the data directory, return the names of the snapshots
-    data_subdir = [name for name in os.listdir(data_dir)] 
-    data_subdir.sort(key=str.lower) 
-    return data_subdir
+    # View the data directory, return the immediate subdirectories
+    data_subdir = [name.path for name in os.scandir(data_dir) if name.is_dir()]
+    return natsorted(data_subdir)
 
 def load_snapshot(data_dir, fields):
     # load a snapshot and pull the necessary fields 
@@ -41,7 +41,7 @@ def velocities(cube):
     gvy = cube["WVY"].d
     gvz = cube["WVZ"].d
     l_factor = lorentz(cube)
-    return gvx/l_factor, gvy/l_factor, gvy/l_factor
+    return gvx/l_factor, gvy/l_factor, gvz/l_factor
 
 def make_ke_ps(ds, cube): 
     # take a snapshot and make a power spectrum 
@@ -67,8 +67,8 @@ def make_ke_ps(ds, cube):
     kz = np.fft.rfftfreq(nz) * nz / L[2]
 
     kmin = np.min(1/L) 
-    #kmax = np.min(0.5 * dims/L)
-    kmax = 128 ### For 2D only, please delete line and use line above
+    kmax = np.min(0.5 * ds.domain_dimensions/L)
+    #kmax = 128 ### For 2D only, please delete line and use line above
 
     kbins = np.arange(kmin, kmax, kmin) 
     N = len(kbins)
@@ -98,11 +98,10 @@ def ke_ps_for_each_snapshot(data_dir):
 
     fields = ["RHOB", "WVX", "WVY", "WVZ"]
 
-    data = np.zeros((2, 254, len(subdir)))
+    data = np.zeros((2, 126, len(subdir)))
 
     for i in range(len(subdir)):
-        path = data_dir + '/'+ subdir[i]
-        ds, cube = load_snapshot(path, fields)
+        ds, cube = load_snapshot(subdir[i], fields)
         data[:,:, i] = make_ke_ps(ds, cube)
 
     return data, subdir
