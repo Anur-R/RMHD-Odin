@@ -67,8 +67,8 @@ def make_ke_ps(ds, cube):
     kz = np.fft.rfftfreq(nz) * nz / L[2]
 
     kmin = np.min(1/L) 
-    kmax = np.min(0.5 * ds.domain_dimensions/L)
-    #kmax = 128 ### For 2D only, please delete line and use line above
+    kmax = np.min(0.5 * ds.domain_dimensions/L) # for 3D only
+    #kmax = 128 ### For 2D only
 
     kbins = np.arange(kmin, kmax, kmin) 
     N = len(kbins)
@@ -105,6 +105,58 @@ def ke_ps_for_each_snapshot(data_dir):
         data[:,:, i] = make_ke_ps(ds, cube)
 
     return data, subdir
+
+def make_vel_field(ds, cube):
+    vx, vy, vz = velocities(cube)
+    dims = ds.domain_dimensions 
+
+    velocity_field = np.zeros( (*dims, 3) ) 
+
+    for i in range(dims[0]):
+        for j in range(dims[1]): 
+            for k in range(dims[2]): 
+                velocity_field[i, j, k, :] = vx[i, j, k], vy[i, j, k], vz[i, j, k]
+
+    return dims, velocity_field
+
+def vel_structure_func(ds, cube, order, nbins): 
+    dims, velocity_field = make_vel_field(ds, cube) 
+    
+    # create list of grid points to iterate through
+    ranges = [np.arange(0, dim) for dim in dims]
+    grid_points = np.array(np.meshgrid(*ranges)).T.reshape(-1, 3)
+
+    # some values to keep track of
+    steps = np.prod(dims)
+
+    # total number of iterations to go through
+    iterations = int(steps * (steps-1)/2)
+    distances = np.zeros(iterations)
+    vel_structure = np.zeros(iterations)
+
+    count = 0
+    for i in range(steps-1):  
+        # take the first coordinate
+        p1 = grid_points[i]
+        for p2 in grid_points[i+1:]: 
+            # for every other coordinate find distance 
+            distances[count] = np.linalg.norm(p2 - p1)
+
+            # calculate velocity structure between the points
+            vel_structure[count] = ( np.linalg.norm(velocity_field[*p1, :] - velocity_field[*p2, :]) )**order
+
+            count += 1
+
+    # create bins to calculate the averages
+    bins = np.linspace(np.min(distances), np.max(distances), nbins+1) 
+
+    ensamble_avg = np.zeros(nbins)
+
+    for i in range(nbins): 
+        # create mask where distances fall below a specific bin
+        # use mask on the vel_structure and average them
+        ensamble_avg[i] = np.average(vel_structure[np.where(distances < bins[i+1])])
+    return bins[:nbins], ensamble_avg
 
 def main(): 
     #gang shit
